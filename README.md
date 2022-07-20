@@ -8,7 +8,7 @@ Smart contracts for NFT Collection Launcher.
 
 ### Install Cairo dependencies
 
-`yarn install`
+Refer to https://starknet.io/docs/quickstart.html#quickstart
 
 
 ### Compile Cairo contracts
