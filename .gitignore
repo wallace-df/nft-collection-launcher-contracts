@@ -4,10 +4,11 @@ dist
 build
 generated
 artifacts
-keys.json
-database.json
 cache-zk
 artifacts-zk
+keys.json
+database.json
+node.json
 
 # local env files
 .env.local
