@@ -2,7 +2,7 @@
 Smart contracts for NFT Collection Launcher.
 
 - Cairo:
-  - [abc] configuration is included to compile and deploy contracts on the StarkNet-testnet network (https://starknet.io/).
+  - Shell scripts are included to compile and deploy contracts on the StarkNet-testnet network (https://starknet.io/).
 - Solidity:
   - Hardhat configuration is included to compile and deploy contracts on the zkSync-testnet network (https://zksync.io/).
 
@@ -10,28 +10,24 @@ Smart contracts for NFT Collection Launcher.
 
 Refer to https://starknet.io/docs/quickstart.html#quickstart
 
-
 ### Compile Cairo contracts
 
-`yarn install`
+`./compile_cairo_contracts.sh`
 
-### Test Cairo contracts
+### Deploy Cairo contracts on the StarkNet network
 
-`yarn install`
-
-### Deploy Cairo contracts to StarkNet
-
-`yarn install`
-
+`./deploy_cairo_contracts.sh`
 
 
 ### Install Solidity dependencies
 
-### Compile Solidity contracts
-
 `yarn install`
 
-### Test Solidity contracts
+### Compile Solidity contracts
 
-`truffle test`
+`yarn hardhat compile`
 
+### Deploy Solidity contracts on the zkSync network
+
+`yarn hardhat deploy`
+ 
