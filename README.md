@@ -15,11 +15,11 @@ Refer to https://starknet.io/docs/quickstart.html#quickstart
 
 ### Compile contracts
 
-`cd cairo`
-`chmod +x compile_cairo_contracts.sh`
-`./compile_cairo_contracts.sh`
+`cd cairo` 
+`chmod +x compile_cairo_contracts.sh` 
+`./compile_cairo_contracts.sh` 
 
-## Deploy contracts on the StarkNet network
+### Deploy contracts on the StarkNet network
 
 `cd cairo`
 `chmod +x deploy_cairo_contracts.sh`
@@ -31,7 +31,7 @@ Refer to https://starknet.io/docs/quickstart.html#quickstart
 
 `yarn install`
 
-## Compile contracts
+### Compile contracts
 
 `yarn hardhat compile`
 
