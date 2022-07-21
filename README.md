@@ -6,28 +6,40 @@ Smart contracts for NFT Collection Launcher.
 - Solidity:
   - Hardhat configuration is included to compile and deploy contracts on the zkSync-testnet network (https://zksync.io/).
 
-### Install Cairo dependencies
+
+## Cairo
+
+### Install dependencies
 
 Refer to https://starknet.io/docs/quickstart.html#quickstart
 
-### Compile Cairo contracts
+### Compile contracts
 
+`cd cairo`
+`chmod +x compile_cairo_contracts.sh`
 `./compile_cairo_contracts.sh`
 
-### Deploy Cairo contracts on the StarkNet network
+## Deploy contracts on the StarkNet network
 
+`cd cairo`
+`chmod +x deploy_cairo_contracts.sh`
 `./deploy_cairo_contracts.sh`
 
+## Solidity
 
-### Install Solidity dependencies
+### Install dependencies
 
 `yarn install`
 
-### Compile Solidity contracts
+## Compile contracts
 
 `yarn hardhat compile`
 
-### Deploy Solidity contracts on the zkSync network
+### Deploy contracts on the zkSync network
 
-`yarn hardhat deploy`
+1. Set the deployer private wallet in the "solidity/keys.json" file:
+`{  "zkSyncDeployerWallet": "<YOUR_WALLET_PRIVATE_KEY" }`
+
+2. Deploy
+`yarn hardhat deploy-zksync`
  
