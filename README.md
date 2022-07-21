@@ -22,7 +22,7 @@ chmod +x compile_cairo_contracts.sh
 ./compile_cairo_contracts.sh
 ```
 
-### Deploy contracts on the StarkNet network
+### Deploy on the StarkNet network
 
 ```shell
 cd cairo
@@ -44,7 +44,7 @@ yarn install
 yarn hardhat compile
 ```
 
-### Deploy contracts on the zkSync network
+### Deploy on the zkSync network
 
 1. Set the deployer private wallet in the "solidity/keys.json" file:
 `{  "zkSyncDeployerWallet": "<YOUR_WALLET_PRIVATE_KEY" }`
