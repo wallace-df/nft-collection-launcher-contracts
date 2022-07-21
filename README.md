@@ -15,25 +15,34 @@ Refer to https://starknet.io/docs/quickstart.html#quickstart
 
 ### Compile contracts
 
-`cd cairo` 
-`chmod +x compile_cairo_contracts.sh` 
-`./compile_cairo_contracts.sh` 
+
+```shell
+cd cairo
+chmod +x compile_cairo_contracts.sh
+./compile_cairo_contracts.sh
+```
 
 ### Deploy contracts on the StarkNet network
 
-`cd cairo`
-`chmod +x deploy_cairo_contracts.sh`
-`./deploy_cairo_contracts.sh`
+```shell
+cd cairo
+chmod +x deploy_cairo_contracts.sh
+./deploy_cairo_contracts.sh
+```
 
 ## Solidity
 
 ### Install dependencies
 
-`yarn install`
+```shell
+yarn install
+```
 
 ### Compile contracts
 
-`yarn hardhat compile`
+```shell
+yarn hardhat compile
+```
 
 ### Deploy contracts on the zkSync network
 
@@ -41,5 +50,6 @@ Refer to https://starknet.io/docs/quickstart.html#quickstart
 `{  "zkSyncDeployerWallet": "<YOUR_WALLET_PRIVATE_KEY" }`
 
 2. Deploy
-`yarn hardhat deploy-zksync`
- 
+```shell
+yarn hardhat deploy-zksync
+```
