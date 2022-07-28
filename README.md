@@ -46,7 +46,7 @@ yarn hardhat compile
 
 ### Deploy on the zkSync network
 
-1. Set the deployer private wallet in the *solidity/keys.json* file:
+1. Create the *solidity/keys.json* file and set the deployer private wallet:
 ```json
 {  "zkSyncDeployerWallet": "<YOUR_WALLET_PRIVATE_KEY" }
 ```
