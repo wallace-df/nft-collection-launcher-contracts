@@ -1,11 +1,16 @@
 # NFT Launcher Contracts
-Smart contracts for NFT Collection Launcher.
+Smart contracts (minter) for the NFT Collection Launcher.
 
-- Cairo:
-  - Shell scripts are included to compile and deploy contracts on the StarkNet-testnet network (https://starknet.io/).
-- Solidity:
-  - Hardhat configuration is included to compile and deploy contracts on the zkSync-testnet network (https://zksync.io/).
+---
 
+NFT Launcher is a dApp that provides an interface for:
+
+- Processing, bundling and uploading NFT assets (.json, .png) to IPFS via NFTStorage API (https://nft.storage/).
+- Automatically deploying the NFT minter contracts to the following networks:
+  - StarkNet (testnet) - https://starknet.io/
+  - zkSync (testnet) -  https://zksync.io/
+
+---
 
 ## Cairo
 
