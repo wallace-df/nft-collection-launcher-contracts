@@ -1,0 +1,432 @@
+%lang starknet
+
+from starkware.cairo.common.cairo_builtins import HashBuiltin, SignatureBuiltin
+from starkware.cairo.common.math import assert_not_zero, assert_not_equal
+from starkware.cairo.common.math_cmp import is_le
+
+from starkware.starknet.common.syscalls import get_caller_address, get_contract_address, get_block_timestamp
+
+from starkware.cairo.common.uint256 import (
+    Uint256,
+    uint256_check,
+    uint256_le,
+    uint256_eq,
+    uint256_lt
+)
+
+from openzeppelin.security.safemath import (
+    uint256_checked_add,
+    uint256_checked_sub_le
+)
+
+from openzeppelin.token.erc721.library import (
+    ERC721_name,
+    ERC721_symbol,
+    ERC721_balanceOf,
+    ERC721_ownerOf,
+    ERC721_getApproved,
+    ERC721_isApprovedForAll,
+
+    ERC721_initializer,
+    ERC721_approve,
+    ERC721_setApprovalForAll,
+    ERC721_transferFrom,
+    ERC721_safeTransferFrom,
+    ERC721_mint,
+
+    _is_approved_or_owner
+)
+
+from openzeppelin.token.erc721.tokenURI_library import (
+    ERC721_tokenURI,
+    ERC721_setBaseTokenURI
+)
+
+from openzeppelin.token.erc721.contractMetadata_library import ERC721_Contract_Metadata
+
+from openzeppelin.introspection.ERC165 import ERC165_supports_interface
+from openzeppelin.introspection.ERC165 import ERC165_register_interface
+from openzeppelin.utils.constants import TRUE
+
+#
+# Structs
+#
+
+struct UserInfo:
+    member user: felt
+    member expires: felt
+end
+
+#
+# Storage variables
+#
+
+@storage_var
+func ERC721_currentTokenSupply() -> (ERC721_currentTokenSupply: Uint256):
+end
+
+@storage_var
+func ERC721_maxTokenSupply() -> (ERC721_maxTokenSupply: Uint256):
+end
+
+@storage_var
+func ERC721_mintPrice() -> (ERC721_mintPrice: Uint256):
+end
+
+@storage_var
+func ERC721_ownedToken(owner: felt, index: Uint256) -> (tokenId: Uint256):
+end
+
+@storage_var
+func ERC721_ownedTokenIndex(owner: felt, tokenId: Uint256) -> (index: Uint256):
+end
+
+@storage_var
+func _users(tokenId: Uint256) -> (user: UserInfo):
+end
+
+#
+# Constructor
+#
+
+@constructor
+func constructor{
+    syscall_ptr: felt*,
+    pedersen_ptr: HashBuiltin*,
+    range_check_ptr
+    } (
+        _name: felt,
+        _symbol: felt,
+        _contractURI_len: felt,
+        _contractURI: felt*,
+        _baseTokenURI_len: felt,
+        _baseTokenURI: felt*,
+        _maxTokenSupply: Uint256,
+        _mintPrice: Uint256,
+    ):
+
+    alloc_locals    
+
+    ERC721_initializer(_name, _symbol)
+    ERC721_Contract_Metadata.set_contract_uri(_contractURI_len, _contractURI)
+    ERC721_setBaseTokenURI(_baseTokenURI_len, _baseTokenURI)
+    ERC165_register_interface(0x56b3ec0f)
+
+    uint256_check(_maxTokenSupply)
+    ERC721_maxTokenSupply.write(_maxTokenSupply)
+
+    uint256_check(_mintPrice)
+    let (mintPriceOK: felt) = uint256_lt(Uint256(0, 0), _mintPrice)
+    assert mintPriceOK = 1
+
+    ERC721_mintPrice.write(_mintPrice)
+    return ()
+end
+
+#
+# Getters
+#
+
+@view
+func supportsInterface{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    } (interfaceId: felt) -> (success: felt):
+    let (success) = ERC165_supports_interface(interfaceId)    
+    return (success)
+end
+
+@view
+func name{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    } () -> (name: felt):
+    let (name) = ERC721_name()
+    return (name)
+end
+
+@view
+func symbol{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    } () -> (symbol: felt):
+    let (symbol) = ERC721_symbol()
+    return (symbol)
+end
+
+@view
+func currentTokenSupply{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    } () -> (currentTokenSupply: Uint256):
+    let (currentTokenSupply) = ERC721_currentTokenSupply.read()
+    return (currentTokenSupply)
+end 
+
+@view
+func maxTokenSupply{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    } () -> (maxTokenSupply: Uint256):
+    let (maxTokenSupply) = ERC721_maxTokenSupply.read()
+    return (maxTokenSupply)
+end
+
+@view
+func mintPrice{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    } () -> (mintPrice: Uint256):
+    let (mintPrice) = ERC721_mintPrice.read()
+    return (mintPrice)
+end
+
+@view
+func balanceOf{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    } (owner: felt) -> (balance: Uint256):
+    let (balance: Uint256) = ERC721_balanceOf(owner)
+    return (balance)
+end
+
+@view
+func ownerOf{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    } (tokenId: Uint256) -> (owner: felt):
+    let (owner: felt) = ERC721_ownerOf(tokenId)
+    return (owner)
+end
+
+@view
+func getApproved{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    } (tokenId: Uint256) -> (approved: felt):
+    let (approved: felt) = ERC721_getApproved(tokenId)
+    return (approved)
+end
+
+@view
+func isApprovedForAll{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    } (owner: felt, operator: felt) -> (isApproved: felt):
+    let (isApproved: felt) = ERC721_isApprovedForAll(owner, operator)
+    return (isApproved)
+end
+
+@view
+func contractURI{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    } () -> (contractURI_len: felt, contractURI: felt*):
+    let (contractURI_len, contractURI) = ERC721_Contract_Metadata.contract_uri()
+    return (contractURI_len, contractURI)
+end
+
+@view
+func tokenURI{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    } (tokenId: Uint256) -> (tokenURI_len: felt, tokenURI: felt*):
+    let (tokenURI_len: felt, tokenURI: felt*) = ERC721_tokenURI(tokenId)
+    return (tokenURI_len, tokenURI)
+end
+
+@view
+func tokenOfOwnerByIndex{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    }(owner: felt, index: Uint256) -> (tokenId: Uint256):
+    alloc_locals
+    uint256_check(index)
+    # Ensures index argument is less than owner's balance 
+    let (len: Uint256) = ERC721_balanceOf(owner)
+    let (is_lt) = uint256_lt(index, len)
+    assert is_lt = 1
+
+    let (tokenId: Uint256) = ERC721_ownedToken.read(owner, index)
+    return (tokenId)
+end
+
+@view
+func userOf{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    } (tokenId: Uint256) -> (user: felt):
+    alloc_locals
+
+    let (now) = get_block_timestamp()
+    let (local userInfo) = _users.read(tokenId)
+
+    let (userActive) = is_le(now, userInfo.expires)
+    if userActive == 1:
+        return (userInfo.user)
+    end
+    return (0)
+end
+
+@view
+func userExpires{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    } (tokenId: Uint256) -> (expires: felt):
+    let (userInfo) = _users.read(tokenId)
+    return (userInfo.expires)
+end
+
+#
+# Externals
+#
+
+@external
+func approve{
+        pedersen_ptr: HashBuiltin*,
+        syscall_ptr: felt*,
+        range_check_ptr
+    } (to: felt, tokenId: Uint256):
+    ERC721_approve(to, tokenId)
+    return ()
+end
+
+@external
+func setApprovalForAll{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    } (operator: felt, approved: felt):
+    ERC721_setApprovalForAll(operator, approved)
+    return ()
+end
+
+@external
+func transferFrom{
+        pedersen_ptr: HashBuiltin*,
+        syscall_ptr: felt*,
+        range_check_ptr
+    } (_from: felt, to: felt, tokenId: Uint256):
+    _remove_token_from_owner_enumeration(_from, tokenId)
+    _add_token_to_owner_enumeration(to, tokenId)
+    ERC721_transferFrom(_from, to, tokenId)
+    return ()
+end
+
+@external
+func safeTransferFrom{
+        pedersen_ptr: HashBuiltin*,
+        syscall_ptr: felt*,
+        range_check_ptr
+    } (_from: felt, to: felt, tokenId: Uint256, data_len: felt, data: felt*):
+    _remove_token_from_owner_enumeration(_from, tokenId)
+    _add_token_to_owner_enumeration(to, tokenId)
+    ERC721_safeTransferFrom(_from, to, tokenId, data_len, data)
+    return ()
+end
+
+@external
+func mint{
+        pedersen_ptr: HashBuiltin*,
+        syscall_ptr: felt*,
+        range_check_ptr
+    } () -> (tokenId: Uint256):
+    alloc_locals
+
+    let (caller) = get_caller_address()
+
+    let (lastTokenId: Uint256) = currentTokenSupply()
+    let (maxTokenId: Uint256) = maxTokenSupply()
+
+    let (newTokenId: Uint256) = uint256_checked_add(lastTokenId, Uint256(1, 0))
+    let (tokenSupplyOk) = uint256_le(newTokenId, maxTokenId)
+    assert tokenSupplyOk = 1
+
+    ERC721_currentTokenSupply.write(newTokenId)
+    _add_token_to_owner_enumeration(caller, newTokenId)
+
+    ERC721_mint(caller, newTokenId)
+    return (newTokenId)
+end
+
+
+@external
+func setUser{
+        pedersen_ptr: HashBuiltin*,
+        syscall_ptr: felt*,
+        range_check_ptr
+    } (tokenId: Uint256, user: felt, expires: felt):
+    alloc_locals
+
+    uint256_check(tokenId)
+    let (caller) = get_caller_address()
+    let (is_approved) = _is_approved_or_owner(caller, tokenId)
+    assert_not_zero(caller * is_approved)
+
+    _users.write(tokenId, UserInfo(user, expires))
+    return ()
+end
+
+#
+# Internals
+#
+
+func _add_token_to_owner_enumeration{
+        pedersen_ptr: HashBuiltin*, 
+        syscall_ptr: felt*, 
+        range_check_ptr
+    } (owner: felt, tokenId: Uint256):
+    alloc_locals
+
+    let (nextTokenIndex: Uint256) = ERC721_balanceOf(owner) 
+    let (isFirstToken) = uint256_eq(nextTokenIndex, Uint256(0, 0))
+    
+    ERC721_ownedToken.write(owner, nextTokenIndex, tokenId)
+    ERC721_ownedTokenIndex.write(owner, tokenId, nextTokenIndex)
+
+    return ()
+end
+
+func _remove_token_from_owner_enumeration{
+        pedersen_ptr: HashBuiltin*, 
+        syscall_ptr: felt*, 
+        range_check_ptr
+    } (owner: felt, tokenId: Uint256):
+    alloc_locals
+
+    let (nextTokenIndex: Uint256) = ERC721_balanceOf(owner) 
+    let (isLastToken: felt) = uint256_eq(nextTokenIndex, Uint256(1, 0))
+
+    # the index starts at zero therefore the user's last token index is their balance minus one
+    let (lastTokenIndex: Uint256) = uint256_checked_sub_le(nextTokenIndex, Uint256(1, 0))
+    let (targetTokenIndex: Uint256) = ERC721_ownedTokenIndex.read(owner, tokenId)
+
+    # If index is last, we can just set the return values to zero
+    let (is_equal) = uint256_eq(targetTokenIndex, lastTokenIndex)
+    if is_equal == TRUE:
+        ERC721_ownedToken.write(owner, lastTokenIndex, Uint256(0, 0))
+        ERC721_ownedTokenIndex.write(owner, tokenId, Uint256(0, 0))
+        return ()
+    end
+
+    # If index is not last, reposition owner's last token to the removed token's index
+    let (lastTokenId: Uint256) = ERC721_ownedToken.read(owner, lastTokenIndex)
+    ERC721_ownedToken.write(owner, targetTokenIndex, lastTokenId)
+    ERC721_ownedTokenIndex.write(owner, lastTokenId, targetTokenIndex)
+    return ()
+end
