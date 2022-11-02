@@ -7,14 +7,23 @@ import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+
+interface ERC721_IWallets {
+    function signerAddress() view external returns(address);
+    function withdrawerAddress() view external returns(address);
+}
 
 contract ERC721_v1 is IERC721 {
     using Address for address;
+    using ECDSA for bytes32;
     using Strings for uint256;
 
     // Control variables
     bool internal _initialized;
-    bool internal _baseContract;
+
+    // Wallets
+    ERC721_IWallets _wallets;
 
     // Token name
     string private _name;
@@ -31,6 +40,10 @@ contract ERC721_v1 is IERC721 {
     // Current token supply
     uint256 private _currentTokenSupply;
 
+    // Token ids
+    uint256[] private _tokenIds;
+    uint256 private index;
+
     // Mapping from token ID to owner address
     mapping(uint256 => address) private _owners;
 
@@ -44,25 +57,28 @@ contract ERC721_v1 is IERC721 {
     mapping(address => mapping(address => bool)) private _operatorApprovals;
 
     // Mapping from token ID to owner address
-    mapping(bytes32 => mapping(address => uint256)) private _phaseMintedTokens;
+    mapping(string => mapping(address => uint256)) private _phaseMintedTokens;
 
-    constructor(bool baseContract_, string memory name_, string memory symbol_, string memory baseURI_, uint256 maxTokenSupply_) {
-        _initialize(name_, symbol_, baseURI_, maxTokenSupply_);
-        _baseContract = baseContract_;
+    // Hash mapping
+    mapping(bytes32 => bool) private _usedHashes;
+
+    constructor(string memory name_, string memory symbol_, string memory baseURI_, uint256 maxTokenSupply_, ERC721_IWallets wallets_) {
+        _initialize(name_, symbol_, baseURI_, maxTokenSupply_, wallets_);
     }
 
-   function initialize(string memory name_, string memory symbol_, string memory baseURI_, uint256 maxTokenSupply_) external {
-        _initialize(name_, symbol_, baseURI_, maxTokenSupply_);
-        _baseContract = false;
+   function initialize(string memory name_, string memory symbol_, string memory baseURI_, uint256 maxTokenSupply_, ERC721_IWallets wallets_) external {
+        _initialize(name_, symbol_, baseURI_, maxTokenSupply_, wallets_);
     }
 
-    function _initialize(string memory name_, string memory symbol_, string memory baseURI_, uint256 maxTokenSupply_) internal {
+    function _initialize(string memory name_, string memory symbol_, string memory baseURI_, uint256 maxTokenSupply_, ERC721_IWallets wallets_) internal {
         require(!_initialized, "Already initialized.");
         _initialized = true;
         _name = name_;
         _symbol = symbol_;
         _baseURI = baseURI_;
         _maxTokenSupply = maxTokenSupply_;
+        _wallets = wallets_;
+        _tokenIds = new uint256[](_maxTokenSupply);
     }
 
     /**
@@ -126,6 +142,31 @@ contract ERC721_v1 is IERC721 {
         require(msg.sender == owner || isApprovedForAll(owner, msg.sender), "ERC721: approve caller is not token owner nor approved for all");
 
         _approve(to, tokenId);
+    }
+
+    function mint(string memory phaseId, uint256 phaseLimit, uint256 blockLimit, uint256 random, uint256 price, uint256 maxTokensPerWallet, bytes memory signature) external payable {
+        require(bytes(phaseId).length > 0, "Invalid phase.");
+        require(blockLimit <= block.number, "Timed out.");
+        require(phaseLimit <= _maxTokenSupply, "Invalid phase limit.");
+        require(_currentTokenSupply < phaseLimit, "Phase limit reached.");
+        require(price > 0, "Invalid price.");
+        require(msg.value == price, "Invalid amount.");
+        require(msg.sender == tx.origin, "Contract mints not allowed.");
+
+        if (maxTokensPerWallet > 0) {
+            require (_phaseMintedTokens[phaseId][msg.sender] < maxTokensPerWallet, "Max tokens per wallet exceeded.");
+        }
+
+        address signer = _wallets.signerAddress();
+        bytes32 messageHash = _hashParams(msg.sender, phaseId, phaseLimit, blockLimit, random, price, maxTokensPerWallet, address(this));
+        uint256 tokenId = _pickRandomUniqueId(random);
+
+        require(messageHash.recover(signature) == signer, "Hash mismatch.");
+        require(!_usedHashes[messageHash], "Hash already used.");
+
+        _usedHashes[messageHash] = true;
+        _currentTokenSupply++;
+        _mint(msg.sender, tokenId);
     }
 
     /**
@@ -326,17 +367,60 @@ contract ERC721_v1 is IERC721 {
             return true;
         }
     }
+
+    function _hashParams(address sender, string memory phaseId, uint256 phaseLimit, uint256 blockLimit, uint256 random, uint256 price, uint256 maxTokensPerWallet, address contractAddress) internal pure returns(bytes32) {
+          bytes32 hash = keccak256(abi.encodePacked(
+            "\x19Ethereum Signed Message:\n32",
+            keccak256(abi.encodePacked(sender, phaseId, phaseLimit, blockLimit, random, price, maxTokensPerWallet, contractAddress))
+          ));    
+          return hash;
+    }
+
+    function _pickRandomUniqueId(uint256 random) internal returns (uint256) {
+        uint256 len = _tokenIds.length - index++;
+        require(len > 0, "no ids left");
+        uint256 randomIndex = random % len;
+        uint256 id = _tokenIds[randomIndex] != 0 ? _tokenIds[randomIndex] : randomIndex;
+        _tokenIds[randomIndex] = uint256(_tokenIds[len - 1] == 0 ? len - 1 : _tokenIds[len - 1]);
+        _tokenIds[len - 1] = 0;
+
+        return id;
+    }
 }
-
-contract ERC721_v1_Deployer {
+  
+contract ERC721_v1_Deployer is ERC721_IWallets {
     ERC721_v1 private _base;
-
+    address private _owner;
+    address private _signer;
+    address private _withdrawer;
+ 
     constructor() {
-        _base = _deploy(true, "NFT", "NFT", "", 0);
+        _base = _deploy("NFT", "NFT", "", 0);
+        _owner = msg.sender;
+        _signer = msg.sender;
+        _withdrawer = msg.sender;
+    }
+
+    function signerAddress() view external override returns(address) {
+        return _signer;
+    }
+
+    function withdrawerAddress() view external override returns(address) {
+        return _withdrawer;        
+    }
+
+    function setSigner(address signer_) external {
+        require(msg.sender == _owner, "Not owner.");
+        _signer = signer_;
+    }
+
+    function setWithdrawer(address withdrawer_) external {
+        require(msg.sender == _owner, "Not owner.");
+        _withdrawer = withdrawer_;
     }
 
     function deploy(string memory _name, string memory _symbol, string memory _baseTokenURI, uint256 _maxTokenSupply) public returns (ERC721_v1) {
-        return _deploy(false, _name, _symbol, _baseTokenURI, _maxTokenSupply);
+        return _deploy(_name, _symbol, _baseTokenURI, _maxTokenSupply);
     }
 
     function clone(string memory _name, string memory _symbol, string memory _baseTokenURI, uint256 _maxTokenSupply) public returns (ERC721_v1) {
@@ -361,12 +445,12 @@ contract ERC721_v1_Deployer {
         }
         require (instanceAddress != address(0), "ERC1167: create failed");
         ERC721_v1 instance = ERC721_v1(instanceAddress);
-        instance.initialize(_name, _symbol, _baseTokenURI, _maxTokenSupply);
+        instance.initialize(_name, _symbol, _baseTokenURI, _maxTokenSupply, this);
         return instance;
     }
 
-    function _deploy(bool _baseContract, string memory _name, string memory _symbol, string memory _baseTokenURI, uint256 _maxTokenSupply) public returns (ERC721_v1) {
-        return new ERC721_v1(_baseContract, _name, _symbol, _baseTokenURI, _maxTokenSupply);
+    function _deploy(string memory _name, string memory _symbol, string memory _baseTokenURI, uint256 _maxTokenSupply) public returns (ERC721_v1) {
+        return new ERC721_v1(_name, _symbol, _baseTokenURI, _maxTokenSupply, this);
     }
 
-}
+} 
